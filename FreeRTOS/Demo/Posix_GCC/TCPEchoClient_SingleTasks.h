@@ -1,5 +1,5 @@
 /*
- * FreeRTOS Kernel V10.3.0
+ * FreeRTOS Kernel V10.3.1
  * Copyright (C) 2017 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -36,5 +36,3 @@ void vStartTCPEchoClientTasks_SingleTasks( uint16_t usTaskStackSize, UBaseType_t
 BaseType_t xAreSingleTaskTCPEchoClientsStillRunning( void );
 
 #endif /* SINGLE_TASK_TCP_ECHO_CLIENTS_H */
-
-
