@@ -92,7 +92,7 @@ ${BUILD_DIR}/${BIN} : ${OBJ_FILES}
 
 ${BUILD_DIR}/%.o : %.c
 	-mkdir -p $(@D)
-	$(CC) $(CFLAGS) ${INCLUDE_DIRS} -MMD -c $< -o $@
+	$(CC) $(CFLAGS) ${INCLUDE_DIRS} -MMD -o $@ -c $<
 
 .PHONY: clean
 

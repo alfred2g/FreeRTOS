@@ -48,7 +48,7 @@ void console_print(const char *fmt, ...)
     va_list vargs;
 
     va_start(vargs, fmt);
-    
+
     xSemaphoreTake(xStdioMutex, portMAX_DELAY);
 
     vprintf(fmt, vargs);
