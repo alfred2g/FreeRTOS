@@ -16,8 +16,16 @@ INCLUDE_DIRS += -I${FREERTOS_DIR}/Source/portable/ThirdParty/GCC/Posix/utils
 INCLUDE_DIRS += -I${FREERTOS_DIR}/Demo/Common/include
 INCLUDE_DIRS += -I${FREERTOS_PLUS_DIR}/Source/FreeRTOS-Plus-Trace/Include
 
-SOURCE_FILES := $(wildcard *.c)
+#SOURCE_FILES := $(wildcard *.c)
 SOURCE_FILES += $(wildcard ${FREERTOS_DIR}/Source/*.c)
+
+#SOURCE_FILES += code_coverage_additions.c
+#SOURCE_FILES += console.c
+SOURCE_FILES += main.c
+SOURCE_FILES += main_blinky.c
+SOURCE_FILES += main_full.c
+SOURCE_FILES += run-time-stats-utils.c
+
 # Memory manager (use malloc() / free() )
 SOURCE_FILES += ${FREERTOS_DIR}/Source/portable/MemMang/heap_3.c
 # posix port
