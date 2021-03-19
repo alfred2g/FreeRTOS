@@ -9,8 +9,8 @@ export LD ?= /usr/local/bin/ld
 # Add units here when adding a new unit test directory with the same name
 UNITS       +=  list
 #UNITS       +=  queue
-#UNITS       +=  timers
-UNITS       +=  tasks
+UNITS       += timers
+UNITS += tasks
 
 .PHONY: makefile.in
 
@@ -66,7 +66,7 @@ $(LIB_DIR)/libcmock.so : $(CMOCK_SRC_DIR)/cmock.c                              \
 $(LIB_DIR)/libunity.so : $(UNITY_SRC_DIR)/unity.c                              \
                          $(UNITY_SRC_DIR)/unity.h                              \
                          Makefile | directories
-    ${CC} -o $@ -shared -fPIC  $<
+    ${CC} -o $@ -DUNITY_USE_COMMAND_LINE_ARGS -DUNITY_OUTPUT_COLOR -DUNITY_INCLUDE_PRINT_FORMATTED -shared -fPIC  $<
 
 $(LIB_DIR)/libunitymemory.so: ${UNITY_MEM_DIR}/unity_memory.c                  \
                               ${UNITY_MEM_DIR}/unity_memory.h                  \

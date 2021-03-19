@@ -131,7 +131,7 @@ $(SCRATCH_DIR)/%/test_runner.o : $(SCRATCH_DIR)/%/test_runner.c                \
 	$(eval INCLUDE = -I$(SCRATCH_DIR)/$*/include)
 	$(eval INCLUDE += -I$(SCRATCH_DIR)/$*/mocks)
 	$(eval INCLUDE += -I$(KERNEL_DIR)/include)
-	$(CC) -c $< $(INCLUDE) $(CPPFLAGS)  $(CFLAGS) -o $@
+	$(CC) -c $< $(INCLUDE) $(CPPFLAGS) $(CFLAGS) -o $@
 
 # Build tasks_utest.o from tasks_utest_%.c
 $(SCRATCH_DIR)/%/$(PROJECT)_utest.o : $(PROJECT_DIR)/$(PROJECT)_utest_%.c      \
@@ -157,8 +157,8 @@ $(SCRATCH_DIR)/%/$(PROJECT).i : $(KERNEL_DIR)/$(PROJECT).c | directories
 # Generate test_runner.c which contains the main function from the test file
 $(SCRATCH_DIR)/%/test_runner.c : $(PROJECT_DIR)/$(PROJECT)_utest_%.c           \
                                  Makefile | directories
-	ruby $(UNITY_BIN_DIR)/generate_test_runner.rb $(EXEC)_$*.c             \
-                       $(PROJECT_DIR)/$(PROJECT).yml $@
+	ruby $(UNITY_BIN_DIR)/generate_test_runner.rb "--use_param_tests=1" $(EXEC)_$*.c             \
+                       $(PROJECT_DIR)/$(PROJECT).yml  $@
 
 # Create needed directories
 directories :
