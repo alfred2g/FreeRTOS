@@ -25,9 +25,6 @@
  */
 /*! @file timers_utest.c */
 
-/* C runtime includes. */
-#include <stdlib.h>
-#include <stdbool.h>
 
 /* Test includes. */
 #include "FreeRTOS.h"
@@ -41,6 +38,10 @@
 #include "mock_list.h"
 #include "mock_fake_assert.h"
 #include "mock_portable.h"
+
+/* C runtime includes. */
+#include <stdlib.h>
+#include <stdbool.h>
 
 /* ======================  DEFINITIONS FROM timers.c ======================== */
 #define tmrNO_DELAY    ( TickType_t ) 0U
@@ -145,7 +146,7 @@ void test_xTimerCreate_Success( void )
     uint32_t ulID = 0;
     TimerHandle_t xTimer = NULL;
     Timer_t  pxNewTimer;
-    QueueHandle_t queue_handlek;
+    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
 
     pvPortMalloc_ExpectAndReturn( sizeof(Timer_t), &pxNewTimer );
     vListInitialise_ExpectAnyArgs();
