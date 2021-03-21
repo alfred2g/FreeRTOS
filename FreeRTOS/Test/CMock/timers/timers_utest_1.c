@@ -103,12 +103,14 @@ void vPortFree( void * pv )
 /*******************************************************************************
  * Unity fixtures
  ******************************************************************************/
+void stopTimers();
 void setUp( void )
 {
     vFakeAssert_Ignore();
     /* Track calls to malloc / free */
     UnityMalloc_StartTest();
     critical_section_counter = 0;
+    stopTimers();
 }
 
 /*! called before each testcase */
