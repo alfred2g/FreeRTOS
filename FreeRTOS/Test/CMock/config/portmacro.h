@@ -164,11 +164,13 @@ static inline uint8_t ucPortCountLeadingZeros( uint32_t ulBitmap )
     uxTopPriority = ( 31UL - ( uint32_t ) ucPortCountLeadingZeros( ( uxReadyPriorities ) ) )
 
 /* Task function macros as described on the FreeRTOS.org WEB site. */
-#define portTASK_FUNCTION_PROTO( vFunction, pvParameters ) \
-    void vFunction( void * ( pvParameters ) )
+#define portTASK_FUNCTION_PROTO( vFunction, pvParameters )       \
+    volatile int fool_static = 0;                                \
+    void vFunction (void * (pvParameters) )
 
-#define portTASK_FUNCTION( vFunction, pvParameters ) \
-    void vFunction( void * ( pvParameters ) )
+#define portTASK_FUNCTION( vFunction, pvParameters )             \
+    volatile int fool_static2 = 0;                               \
+    void vFunction(void * (pvParameters) )
 
 /*-----------------------------------------------------------*/
 

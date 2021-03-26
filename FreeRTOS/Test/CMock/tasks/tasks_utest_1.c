@@ -3447,6 +3447,7 @@ void ignore_test_prvIddleTask_yield( void )
     /* Setup */
     uxDeletedTasksWaitingCleanUp = 0;
     portTASK_FUNCTION( prvIdleTask, args );
+    ( void )fool_static2;
     /* Expectations */
     listCURRENT_LIST_LENGTH_ExpectAndReturn( &pxReadyTasksLists[ 0 ], 2 );
     listCURRENT_LIST_LENGTH_ExpectAndReturn( &pxReadyTasksLists[ 0 ], 0 );

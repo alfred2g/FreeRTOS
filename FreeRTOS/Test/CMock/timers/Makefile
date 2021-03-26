@@ -23,7 +23,7 @@ UNDEF_MOCKED_HEADER_MACROS := -UlistLIST_IS_EMPTY -UlistGET_OWNER_OF_HEAD_ENTRY\
 		    -UlistLIST_ITEM_CONTAINER -UlistCURRENT_LIST_LENGTH
 
 # List special compilation flags for this module
-CFLAGS           += 
+CFLAGS           +=
 
 # List special preprocessing flags for this module
 CPPFLAGS         +=
@@ -84,7 +84,6 @@ EXEC_PATH        := $(addprefix $(BIN_DIR)/,$(EXEC))
 .PHONY: all Makefile directories
 
 .SECONDARY:
-.SECONDEXPANSION:
 all : directories $(EXECUTABLES)
 
 # Build the executables 1 per configuration
@@ -149,14 +148,17 @@ $(SCRATCH_DIR)/%/$(PROJECT)_utest.o : $(PROJECT_DIR)/$(PROJECT)_utest_%.c      \
 $(SCRATCH_DIR)/%/$(PROJECT).o : $(SCRATCH_DIR)/%/$(PROJECT).i | directories
 	$(CC) -c $< $(CFLAGS) $(COVERAGE_OPTS) -o $@
 
+RESET_TIMER_FUNCTION := void stopTimers() { xTimerQueue = NULL; xTimerTaskHandle = NULL; }
+
 # Build tasks.i from tasks.c with the custom FreeRTOSConfig.h and place it in
 # its configuration directory
 $(SCRATCH_DIR)/%/$(PROJECT).i : $(KERNEL_DIR)/$(PROJECT).c | directories
 	$(eval INCLUDE = -I$(SCRATCH_DIR)/$*/include)
 	$(eval INCLUDE += -I$(SCRATCH_DIR)/$*/mocks)                           \
 	$(eval INCLUDE += -I$(KERNEL_DIR)/include)                             \
+	grep -q '$(RESET_TIMER_FUNCTION)' $< || \
+			sed -i -e '$$a$(RESET_TIMER_FUNCTION)' $<
 	$(CC) -E $< $(INCLUDE) $(CPPFLAGS) -include list_macros.h -o $@
-
 # Generate test_runner.c which contains the main function from the test file
 $(SCRATCH_DIR)/%/test_runner.c : $(PROJECT_DIR)/$(PROJECT)_utest_%.c           \
                                  Makefile | directories
@@ -171,6 +173,3 @@ directories :
 	-mkdir   -p  $(CPP_DIRS)
 	-mkdir   -p  $(INCLUDE_DIRS)
 
-.PRECIOUS: build/%.o
-.PRECIOUS: build/%.c
-.PRECIOUS: build/%.h
