@@ -32,6 +32,8 @@
 #include "portmacro.h"
 #include "timers.h"
 
+#include "global_vars.h"
+
 #include "unity.h"
 #include "unity_memory.h"
 
@@ -48,75 +50,11 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-/* ======================  DEFINITIONS FROM timers.c ======================== */
-#define tmrNO_DELAY    ( TickType_t ) 0U
-
-#define tmrSTATUS_IS_ACTIVE                  ( ( uint8_t ) 0x01 )
-#define tmrSTATUS_IS_STATICALLY_ALLOCATED    ( ( uint8_t ) 0x02 )
-#define tmrSTATUS_IS_AUTORELOAD              ( ( uint8_t ) 0x04 )
-
-#define tmrCOMMAND_EXECUTE_CALLBACK_FROM_ISR    ( ( BaseType_t ) -2 )
-#define tmrCOMMAND_EXECUTE_CALLBACK             ( ( BaseType_t ) -1 )
-#define tmrCOMMAND_START_DONT_TRACE             ( ( BaseType_t ) 0 )
-#define tmrCOMMAND_START                        ( ( BaseType_t ) 1 )
-#define tmrCOMMAND_RESET                        ( ( BaseType_t ) 2 )
-#define tmrCOMMAND_STOP                         ( ( BaseType_t ) 3 )
-#define tmrCOMMAND_CHANGE_PERIOD                ( ( BaseType_t ) 4 )
-#define tmrCOMMAND_DELETE                       ( ( BaseType_t ) 5 )
-
-#define tmrFIRST_FROM_ISR_COMMAND               ( ( BaseType_t ) 6 )
-#define tmrCOMMAND_START_FROM_ISR               ( ( BaseType_t ) 6 )
-#define tmrCOMMAND_RESET_FROM_ISR               ( ( BaseType_t ) 7 )
-#define tmrCOMMAND_STOP_FROM_ISR                ( ( BaseType_t ) 8 )
-#define tmrCOMMAND_CHANGE_PERIOD_FROM_ISR       ( ( BaseType_t ) 9 )
-
-typedef struct tmrTimerControl                  /* The old naming convention is used to prevent breaking kernel aware debuggers. */
-{
-    const char * pcTimerName;                   /*<< Text name.  This is not used by the kernel, it is included simply to make debugging easier. */ /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
-    ListItem_t xTimerListItem;                  /*<< Standard linked list item as used by all kernel features for event management. */
-    TickType_t xTimerPeriodInTicks;             /*<< How quickly and often the timer expires. */
-    void * pvTimerID;                           /*<< An ID to identify the timer.  This allows the timer to be identified when the same callback is used for multiple timers. */
-    TimerCallbackFunction_t pxCallbackFunction; /*<< The function that will be called when the timer expires. */
-    #if ( configUSE_TRACE_FACILITY == 1 )
-        UBaseType_t uxTimerNumber;              /*<< An ID assigned by trace tools such as FreeRTOS+Trace */
-    #endif
-    uint8_t ucStatus;                           /*<< Holds bits to say if the timer was statically allocated or not, and if it is active or not. */
-} xTIMER;
-
-typedef xTIMER Timer_t;
-
-typedef struct tmrTimerParameters
-{
-    TickType_t xMessageValue; /*<< An optional value used by a subset of commands, for example, when changing the period of a timer. */
-    Timer_t * pxTimer;        /*<< The timer to which the command will be applied. */
-} TimerParameter_t;
-
-typedef struct tmrCallbackParameters
-{
-    PendedFunction_t pxCallbackFunction; /* << The callback function to execute. */
-    void * pvParameter1;                 /* << The value that will be used as the callback functions first parameter. */
-    uint32_t ulParameter2;               /* << The value that will be used as the callback functions second parameter. */
-} CallbackParameters_t;
-
-typedef struct tmrTimerQueueMessage
-{
-    BaseType_t xMessageID; /*<< The command being sent to the timer service task. */
-    union
-    {
-        TimerParameter_t xTimerParameters;
-
-        /* Don't include xCallbackParameters if it is not going to be used as
-            * it makes the structure (and therefore the timer queue) larger. */
-        #if ( INCLUDE_xTimerPendFunctionCall == 1 )
-            CallbackParameters_t xCallbackParameters;
-        #endif /* INCLUDE_xTimerPendFunctionCall */
-    } u;
-} DaemonTaskMessage_t;
+void stopTimers();
 
 /* ============================  GLOBAL VARIABLES =========================== */
 static uint16_t usMallocFreeCalls = 0;
 static uint32_t critical_section_counter;
-static Timer_t  pxNewTimer;
 static char task_memory[ 200 ];
 
 static TickType_t saved_last_time = 0;
@@ -135,11 +73,9 @@ void vFakePortExitCriticalSection( void )
 
 void vFakePortYieldWithinAPI()
 {
- //   HOOK_DIAG();
-    printf("fake port yield called\n");
+    HOOK_DIAG();
     port_yield_within_api_called = true;
     pthread_exit(NULL);
- //   py_operation();
 }
 
 void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
@@ -156,28 +92,103 @@ void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
 
 void vApplicationDaemonTaskStartupHook( void )
 {
-    printf("timer started\n");
+    HOOK_DIAG();
 }
+
+/* ==========================  CALLBACK FUNCTIONS  ========================== */
 static void xCallback_Test( TimerHandle_t xTimer )
 {
+    HOOK_DIAG();
 }
-/* ==========================  CALLBACK FUNCTIONS =========================== */
-
-/*
-void * pvPortMalloc( size_t xSize )
+static int32_t end_4_timer = 0;
+static void pended_function_4_end( void * arg1, uint32_t arg2 )
 {
-    return unity_malloc( xSize );
+    HOOK_DIAG();
+    static int i = 4;
+    if ( end_4_timer -1 <= 0 )
+    {
+        pthread_exit(&i);
+    }
+    end_4_timer--;
 }
-void vPortFree( void * pv )
-{
-    return unity_free( pv );
-}
-*/
 
-/*******************************************************************************
- * Unity fixtures
- ******************************************************************************/
-void stopTimers();
+static int32_t end_1_timer = 0;
+static void xCallback_Test_1_end( TimerHandle_t xTimer )
+{
+    HOOK_DIAG();
+    static int i = 1;
+    if (end_1_timer - 1 <= 0)
+    {
+        pthread_exit(&i);
+    }
+    end_1_timer--;
+}
+
+static int32_t end_2_timer = 0;
+static void xCallback_Test_2_end( TimerHandle_t xTimer )
+{
+    HOOK_DIAG();
+    static int i = 2;
+    if (end_2_timer - 1 <= 0)
+    {
+        pthread_exit(&i);
+    }
+    end_2_timer--;
+}
+
+/* =============================  STATIC FUNCTIONS  ========================= */
+static void * timer_thread_function( void * args)
+{
+    void * pvParameters = NULL;
+    portTASK_FUNCTION( prvTimerTask, pvParameters );
+    (void) fool_static2; /* ignore unused variable warning */
+    /* API Call */
+    prvTimerTask(pvParameters);
+    return NULL;
+}
+
+static void create_timer_task( void )
+{
+    BaseType_t ret_xtimer;
+    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
+    TaskHandle_t timer_handle  = ( TaskHandle_t )task_memory;
+    /* Setup */
+    /* Expectations */
+    vListInitialise_ExpectAnyArgs();
+    vListInitialise_ExpectAnyArgs();
+    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
+    vQueueAddToRegistry_ExpectAnyArgs();
+    xTaskCreateStatic_ExpectAnyArgsAndReturn( timer_handle );
+    /* API Call */
+    ret_xtimer = xTimerCreateTimerTask();
+    /* Validations */
+    TEST_ASSERT_TRUE( ret_xtimer );
+}
+
+static TimerHandle_t create_timer()
+{
+    uint32_t pvTimerID = 0;
+    TimerHandle_t xTimer = NULL;
+    StaticTimer_t pxTimerBuffer[ sizeof( StaticTimer_t ) ];
+    QueueHandle_t queue_handle = ( QueueHandle_t ) 3; /* not zero */
+
+    //pvPortMalloc_ExpectAndReturn( sizeof( Timer_t ), &pxNewTimer );
+    vListInitialise_ExpectAnyArgs();
+    vListInitialise_ExpectAnyArgs();
+    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
+    vQueueAddToRegistry_ExpectAnyArgs();
+    vListInitialiseItem_ExpectAnyArgs();
+
+    xTimer = xTimerCreateStatic( "ut_timer",
+                                 pdMS_TO_TICKS( 1000 ),
+                                 pdTRUE,
+                                ( void * ) &pvTimerID,
+                                xCallback_Test,
+                                pxTimerBuffer );
+    return xTimer;
+}
+
+/* ============================  UNITY FIXTURES  =========================== */
 void setUp( void )
 {
     vFakeAssert_Ignore();
@@ -210,187 +221,8 @@ int suiteTearDown( int numFailures )
     return numFailures;
 }
 
-TimerHandle_t create_timer()
-{
-    uint32_t ulID = 0;
-    TimerHandle_t xTimer = NULL;
-    QueueHandle_t queue_handle = ( QueueHandle_t ) 3; /* not zero */
-
-    pvPortMalloc_ExpectAndReturn( sizeof( Timer_t ), &pxNewTimer );
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
-    vQueueAddToRegistry_ExpectAnyArgs();
-    vListInitialiseItem_ExpectAnyArgs();
-
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-    return xTimer;
-}
-
-void create_timer_task( void )
-{
-    BaseType_t ret_xtimer;
-    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
-    TaskHandle_t timer_handle  = ( TaskHandle_t )task_memory;
-    /* Setup */
-    /* Expectations */
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
-    vQueueAddToRegistry_ExpectAnyArgs();
-    xTaskCreateStatic_ExpectAnyArgsAndReturn( timer_handle );
-    /* API Call */
-    ret_xtimer = xTimerCreateTimerTask();
-    /* Validations */
-    TEST_ASSERT_TRUE( ret_xtimer );
-}
 
 /* ==============================  TEST FUNCTIONS  ========================== */
-
-/**
- * @brief xTimerCreate happy path
- *
- */
-void test_xTimerCreate_success( void )
-{
-    uint32_t ulID = 0;
-    TimerHandle_t xTimer = NULL;
-    Timer_t  pxNewTimer;
-    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
-
-    pvPortMalloc_ExpectAndReturn( sizeof(Timer_t), &pxNewTimer );
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
-    vQueueAddToRegistry_ExpectAnyArgs();
-    vListInitialiseItem_ExpectAnyArgs();
-
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-
-    TEST_ASSERT_NOT_EQUAL( NULL, xTimer );
-    TEST_ASSERT_EQUAL_PTR( &pxNewTimer, xTimer );
-    TEST_ASSERT_EQUAL( tmrSTATUS_IS_AUTORELOAD , pxNewTimer.ucStatus );
-    TEST_ASSERT_EQUAL_STRING( "ut-timer", pxNewTimer.pcTimerName );
-    TEST_ASSERT_EQUAL( pdMS_TO_TICKS(1000), pxNewTimer.xTimerPeriodInTicks );
-    TEST_ASSERT_EQUAL_PTR( &ulID, pxNewTimer.pvTimerID );
-    TEST_ASSERT_EQUAL_PTR( xCallback_Test, pxNewTimer.pxCallbackFunction );
-}
-
-void test_xTimerCreate_success_no_auto_reload( void )
-{
-    uint32_t ulID = 0;
-    TimerHandle_t xTimer = NULL;
-    Timer_t  pxNewTimer;
-    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
-
-    pvPortMalloc_ExpectAndReturn( sizeof(Timer_t), &pxNewTimer );
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
-    vQueueAddToRegistry_ExpectAnyArgs();
-    vListInitialiseItem_ExpectAnyArgs();
-
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdFALSE,
-                           &ulID,
-                           xCallback_Test );
-
-    TEST_ASSERT_EQUAL_PTR( &pxNewTimer, xTimer );
-    TEST_ASSERT_EQUAL( 0, pxNewTimer.ucStatus );
-}
-
-void test_xTimerCreate_success_twice( void )
-{
-    uint32_t ulID = 0;
-    TimerHandle_t xTimer = NULL;
-    Timer_t  pxNewTimer;
-    QueueHandle_t queue_handle = (QueueHandle_t) 3; /* not zero */
-
-    pvPortMalloc_ExpectAndReturn( sizeof(Timer_t), &pxNewTimer );
-    /* prvInitialiseNewTimer */
-    /* prvCheckForValidListAndQueue */
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn( queue_handle );
-    vQueueAddToRegistry_ExpectAnyArgs();
-    /* back prvInitialiseNewTimer  */
-    vListInitialiseItem_ExpectAnyArgs();
-
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-
-    TEST_ASSERT_EQUAL_PTR( &pxNewTimer, xTimer );
-    TEST_ASSERT_EQUAL_PTR( &pxNewTimer, xTimer );
-    TEST_ASSERT_EQUAL( tmrSTATUS_IS_AUTORELOAD , pxNewTimer.ucStatus );
-    TEST_ASSERT_EQUAL_STRING( "ut-timer", pxNewTimer.pcTimerName );
-    TEST_ASSERT_EQUAL( pdMS_TO_TICKS(1000), pxNewTimer.xTimerPeriodInTicks );
-    TEST_ASSERT_EQUAL_PTR( &ulID, pxNewTimer.pvTimerID );
-    TEST_ASSERT_EQUAL_PTR( xCallback_Test, pxNewTimer.pxCallbackFunction );
-
-    /* Second call to xTimerCreate */
-    pvPortMalloc_ExpectAndReturn( sizeof(Timer_t), &pxNewTimer );
-    vListInitialiseItem_ExpectAnyArgs();
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-    TEST_ASSERT_EQUAL_PTR( &pxNewTimer, xTimer );
-}
-
-void test_xTimerCreate_fail_timer_allocation( void )
-{
-    uint32_t ulID = 0;
-    TimerHandle_t xTimer = NULL;
-
-    pvPortMalloc_ExpectAndReturn(sizeof(Timer_t), NULL);
-
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-
-    TEST_ASSERT_EQUAL( NULL, xTimer );
-}
-void test_xTimerCreate_fail_queue_allocation( void )
-{
-    uint32_t ulID = 0;
-    Timer_t  pxNewTimer;
-    TimerHandle_t xTimer = NULL;
-
-    /* Expectations */
-    pvPortMalloc_ExpectAndReturn(sizeof(Timer_t), &pxNewTimer);
-    /* prvInitialiseNewTimer */
-    /* prvCheckForValidListAndQueue */
-    vListInitialise_ExpectAnyArgs();
-    vListInitialise_ExpectAnyArgs();
-    xQueueGenericCreateStatic_ExpectAnyArgsAndReturn(NULL);
-    /* Back prvInitialiseNewTimer */
-    vListInitialiseItem_ExpectAnyArgs();
-
-    /* API Call */
-    xTimer = xTimerCreate( "ut-timer",
-                           pdMS_TO_TICKS( 1000 ),
-                           pdTRUE,
-                           &ulID,
-                           xCallback_Test );
-    /* Validations */
-    TEST_ASSERT_EQUAL( &pxNewTimer, xTimer );
-}
-
 void test_xTimerCreateTimerTask_success( void )
 {
     BaseType_t ret_xtimer;
@@ -472,8 +304,6 @@ void test_xTimerCreateStatic_fail_null_buffer( void )
     UBaseType_t  pvTimerID;
     /* Setup */
     /* Expectations */
-    /* prvInitialiseNewTimer */
-    /* prvCheckForValidListAndQueue */
     /* API Call */
     ret_timer_create = xTimerCreateStatic( "ut_timer_task",
                                            pdMS_TO_TICKS( 1000 ),
@@ -596,7 +426,7 @@ void test_xTimerGenericCommand_success_null_timer_not_started( void )
 
 void test_xTimerGetTimerDaemonTaskHandle_success( void )
 {
-    TaskHandle_t  ret_get_timer_handle;
+    TaskHandle_t ret_get_timer_handle;
     /* Setup */
     create_timer_task();
     /* Expectations */
@@ -609,7 +439,7 @@ void test_xTimerGetTimerDaemonTaskHandle_success( void )
 void test_xTimerGetPeriod_success( void )
 {
     TickType_t  ret_get_period;
-    TimerHandle_t  xTimer;
+    TimerHandle_t xTimer;
 
     /* Setup */
     xTimer = create_timer();
@@ -667,7 +497,7 @@ void test_pcTimerGetName( void )
     /* API Call */
     ret_timer_name =  pcTimerGetName( xTimer );
     /* Validations */
-    TEST_ASSERT_EQUAL_STRING("ut-timer", ret_timer_name);
+    TEST_ASSERT_EQUAL_STRING("ut_timer", ret_timer_name);
 }
 
 void test_xTimerIsTimerActive_true( void )
@@ -757,57 +587,6 @@ void test_xTimerPendFunctionCallFromISR_success( void )
     TEST_ASSERT_EQUAL( pdTRUE, ret_timer_pend );
 }
 
-static void * timer_thread_function( void * args)
-{
-    void * pvParameters = NULL;
-    portTASK_FUNCTION( prvTimerTask, pvParameters );
-    (void) fool_static2; /* ignore unused variable warning */
-    /* API Call */
-    prvTimerTask(pvParameters);
-    return NULL;
-}
-static int32_t end_4_timer = 0;
-static void pended_function_4_end( void * arg1, uint32_t arg2 )
-{
-    printf("end 4 timer called\n");
-    static int i = 4;
-    if ( end_4_timer -1 <= 0 )
-    {
-        pthread_exit(&i);
-    }
-    end_4_timer--;
-}
-
-static int32_t end_1_timer = 0;
-static void xCallback_Test_1_end( TimerHandle_t xTimer )
-{
-    printf("end 1 timer called\n");
-    static int i = 1;
-    if (end_1_timer - 1 <= 0)
-    {
-        pthread_exit(&i);
-    }
-    end_1_timer--;
-}
-
-static int32_t end_2_timer = 0;
-static void xCallback_Test_2_end( TimerHandle_t xTimer )
-{
-    printf("xCallback_Test_2_end called \n");
-    static int i = 2;
-    if (end_2_timer - 1 <= 0)
-    {
-        pthread_exit(&i);
-    }
-    end_2_timer--;
-}
-/*
-static void xCallback_Test_3_end( TimerHandle_t xTimer )
-{
-    static int i = 3;
-    pthread_exit(&i);
-}
-*/
 
 void test_timer_function_success(void)
 {
@@ -834,14 +613,10 @@ void test_timer_function_success(void)
     /* prvProcessExpiredTimer */
     listGET_OWNER_OF_HEAD_ENTRY_ExpectAnyArgsAndReturn( &xTimer );
     uxListRemove_ExpectAndReturn( &xTimer.xTimerListItem, pdTRUE );
-    /* prvInsertTimerInActiveList */
-    /* prvProcessReceivedCommands */
 
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(1, *retVal);
 }
@@ -874,10 +649,7 @@ void test_timer_function_success3(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
-
     TEST_ASSERT_TRUE( port_yield_within_api_called );
 }
 
@@ -942,7 +714,6 @@ void test_timer_function_success4(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
     /* Validations */
     TEST_ASSERT_EQUAL(1, *retVal);
 }
@@ -1025,10 +796,7 @@ void test_timer_function_success5(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
-    //TEST_ASSERT_EQUAL(1, *retVal);
     TEST_ASSERT_TRUE( port_yield_within_api_called );
 }
 
@@ -1108,13 +876,10 @@ void test_timer_function_success6(void)
     listLIST_IS_EMPTY_ExpectAnyArgsAndReturn(pdTRUE);
     /* prvInsertInActiveList */
     listSET_LIST_ITEM_VALUE_ExpectAnyArgs();
-    //vTaskSuspendAll_Expect();
 
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(1, *retVal);
 }
@@ -1220,8 +985,6 @@ void test_timer_function_success3_command_start(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(2, *retVal);
 }
@@ -1278,13 +1041,10 @@ void test_timer_function_success3_command_start2(void)
     listGET_OWNER_OF_HEAD_ENTRY_ExpectAnyArgsAndReturn(&xTimer);
     uxListRemove_ExpectAnyArgsAndReturn(pdTRUE);
     /* prvInsertInActiveList */
-    //listSET_LIST_ITEM_VALUE_ExpectAnyArgs();
 
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(2, *retVal);
 }
@@ -1347,8 +1107,6 @@ void test_timer_function_success3_command_start3(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(2, *retVal);
 }
@@ -1411,8 +1169,6 @@ void test_timer_function_success3_command_start4(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
-    //prvTimerTask(pvParameters);
     /* Validations */
     TEST_ASSERT_EQUAL(2, *retVal);
 }
@@ -1450,8 +1206,6 @@ void test_timer_function_success3_command_start5(void)
 
     xMessage2.xMessageID = tmrCOMMAND_EXECUTE_CALLBACK;
     xMessage2.u.xCallbackParameters = callback_param;
-    //xMessage2.u.xTimerParameters.pxTimer = &xTimer2;
-    //xMessage2.u.xTimerParameters.xMessageValue = saved_last_time - 500;
     /* Expectations */
     /* prvGetNextExpireTime */
     listLIST_IS_EMPTY_ExpectAnyArgsAndReturn( pdFALSE );
@@ -1555,9 +1309,6 @@ void test_timer_function_success3_command_stop(void)
     /* prvSampleTimeNow*/
     xTaskGetTickCount_ExpectAndReturn( saved_last_time + 5000 ); /* time now / static last_time = 0 */
     saved_last_time += 5000;
-    /* prvInsertTimerInActiveList */
-    //listSET_LIST_ITEM_VALUE_ExpectAnyArgs();
-    //vListInsert_ExpectAnyArgs();
     /* back to prvProcessReceivedCommands */
     xQueueReceive_ExpectAndReturn(NULL, NULL, tmrNO_DELAY, pdPASS);
     xQueueReceive_IgnoreArg_xQueue();
@@ -1568,8 +1319,6 @@ void test_timer_function_success3_command_stop(void)
     pthread_join( thread_id, ( void ** )&retVal);
     /* Validations */
     TEST_ASSERT_EQUAL(4, *retVal);
-    printf("xTimer %p\n", &xTimer);
-    printf("status %d\n", (xTimer.ucStatus & tmrSTATUS_IS_ACTIVE ) );
     TEST_ASSERT_FALSE(xTimer.ucStatus & tmrSTATUS_IS_ACTIVE);
 }
 
@@ -1722,78 +1471,6 @@ void test_timer_function_success3_command_delete_static(void)
     TEST_ASSERT_FALSE(xTimer.ucStatus & tmrSTATUS_IS_ACTIVE);
 }
 
-void test_timer_function_success3_command_delete_dynamic(void)
-{
-    Timer_t xTimer = { 0 };
-    Timer_t xTimer2 = { 0 };
-    pthread_t thread_id;
-    int * retVal;
-
-    DaemonTaskMessage_t xMessage;
-    DaemonTaskMessage_t xMessage2;
-    CallbackParameters_t callback_param;
-    end_2_timer = 2;
-    end_4_timer = 1;
-
-    /* Setup */
-    xTimer.ucStatus |= tmrSTATUS_IS_AUTORELOAD;
-    xTimer.ucStatus &= ~tmrSTATUS_IS_STATICALLY_ALLOCATED;
-    xTimer.ucStatus &= ~tmrSTATUS_IS_ACTIVE;
-    xTimer.pxCallbackFunction = xCallback_Test_2_end;
-    xTimer.xTimerPeriodInTicks = UINT32_MAX;
-
-    xTimer2.ucStatus |= tmrSTATUS_IS_AUTORELOAD;
-    xTimer2.pxCallbackFunction = xCallback_Test_2_end;
-    xTimer2.xTimerPeriodInTicks = saved_last_time;
-
-    callback_param.pxCallbackFunction = &pended_function_4_end;
-    callback_param.pvParameter1 = NULL;
-    callback_param.ulParameter2 = 0xa9a9a9a9;
-
-    xMessage.xMessageID = tmrCOMMAND_DELETE;
-    xMessage.u.xCallbackParameters = callback_param;
-    xMessage.u.xTimerParameters.pxTimer = &xTimer;
-    xMessage.u.xTimerParameters.xMessageValue = saved_last_time;
-
-    xMessage2.xMessageID = tmrCOMMAND_EXECUTE_CALLBACK; /* used to end the loop */
-    xMessage2.u.xCallbackParameters = callback_param;
-    /* Expectations */
-    /* prvGetNextExpireTime */
-    listLIST_IS_EMPTY_ExpectAnyArgsAndReturn( pdFALSE );
-    listGET_ITEM_VALUE_OF_HEAD_ENTRY_ExpectAnyArgsAndReturn( 3 );
-    /* prvProcessTimerOrBlockTask */
-    vTaskSuspendAll_Expect();
-    /* prvSampleTimeNow */
-    xTaskGetTickCount_ExpectAndReturn( saved_last_time ); /* time now / static last_time = 0 */
-    /* back to prvProcessTimerOrBlockTask */
-    xTaskResumeAll_ExpectAndReturn( pdTRUE );
-    /* prvProcessExpiredTimer */
-    listGET_OWNER_OF_HEAD_ENTRY_ExpectAnyArgsAndReturn( &xTimer );
-    uxListRemove_ExpectAndReturn( &xTimer.xTimerListItem, pdTRUE );
-    /* prvInsertTimerInActiveList */
-    listSET_LIST_ITEM_VALUE_ExpectAnyArgs();
-    vListInsert_ExpectAnyArgs();
-    /* prvProcessReceivedCommands */
-    xQueueReceive_ExpectAndReturn(NULL, NULL, tmrNO_DELAY, pdPASS);
-    xQueueReceive_IgnoreArg_xQueue();
-    xQueueReceive_IgnoreArg_pvBuffer();
-    xQueueReceive_ReturnMemThruPtr_pvBuffer( &xMessage, sizeof (DaemonTaskMessage_t) );
-    listIS_CONTAINED_WITHIN_ExpectAnyArgsAndReturn(pdFALSE);
-    uxListRemove_ExpectAnyArgsAndReturn(pdTRUE);
-    /* prvSampleTimeNow*/
-    xTaskGetTickCount_ExpectAndReturn( saved_last_time ); /* time now / static last_time = 0 */
-    vPortFree_Expect( &xTimer ); /* testcase is testing this clause */
-    /* back to prvProcessReceivedCommands */
-    xQueueReceive_ExpectAndReturn(NULL, NULL, tmrNO_DELAY, pdPASS);
-    xQueueReceive_IgnoreArg_xQueue();
-    xQueueReceive_IgnoreArg_pvBuffer();
-    xQueueReceive_ReturnMemThruPtr_pvBuffer( &xMessage2, sizeof (DaemonTaskMessage_t) );
-    /* API Call */
-    pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
-    pthread_join( thread_id, ( void ** )&retVal);
-    /* Validations */
-    TEST_ASSERT_EQUAL(4, *retVal);
-}
 
 void test_timer_function_success3_command_unknown(void)
 {
@@ -1945,7 +1622,6 @@ void test_timer_function_success_wrap_timer(void)
     /* API Call */
     pthread_create( &thread_id, NULL,  &timer_thread_function, NULL );
     pthread_join( thread_id, (void**)&retVal);
-    printf("thread joined \n");
     /* Validations */
     TEST_ASSERT_EQUAL(1, *retVal);
 }
