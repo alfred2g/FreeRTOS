@@ -33,7 +33,11 @@ INCLUDE_DIRS += -I${FREERTOS_TCP}/portable/Compiler/GCC/
 
 # FreeRTOS networking sources
 SOURCE_FILES +=  main_networking.c
-SOURCE_FILES += ${FREERTOS_TCP}/FreeRTOS_DNS.c
+SOURCE_FILES += ${FREERTOS_TCP}/DNS/DNS_Callback.c
+SOURCE_FILES += ${FREERTOS_TCP}/DNS/DNS_Networking.c
+SOURCE_FILES += ${FREERTOS_TCP}/DNS/DNS_Cache.c
+SOURCE_FILES += ${FREERTOS_TCP}/DNS/DNS_Parser.c
+SOURCE_FILES += ${FREERTOS_TCP}/DNS/FreeRTOS_DNS.c
 SOURCE_FILES += ${FREERTOS_TCP}/FreeRTOS_DHCP.c
 SOURCE_FILES += ${FREERTOS_TCP}/FreeRTOS_ARP.c
 SOURCE_FILES += ${FREERTOS_TCP}/FreeRTOS_TCP_WIN.c
@@ -57,7 +61,7 @@ LDFLAGS = -T ./scripts/mps2_m3.ld -specs=nano.specs --specs=rdimon.specs -lc -lr
 LDFLAGS += -Xlinker -Map=${BUILD_DIR}/output.map
 
 CFLAGS += -nostartfiles -mthumb -mcpu=cortex-m3 -Wno-error=implicit-function-declaration
-CFLAGS += -Wno-builtin-declaration-mismatch -Werror
+CFLAGS += -Wno-builtin-declaration-mismatch
 
 ifeq ($(DEBUG), 1)
     CFLAGS += -ggdb3 -Og

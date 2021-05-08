@@ -109,6 +109,7 @@ a socket. */
 #define ipconfigDNS_CACHE_NAME_LENGTH       ( 16 )
 #define ipconfigDNS_CACHE_ENTRIES           ( 4 )
 #define ipconfigDNS_REQUEST_ATTEMPTS        ( 2 )
+#define ipconfigDNS_USE_CALLBACKS           (1)
 
 /* The IP stack executes it its own task (although any application task can make
 use of its services through the published sockets API). ipconfigUDP_TASK_PRIORITY
